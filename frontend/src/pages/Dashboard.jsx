@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { fetchDashboardData, fetchSystemStatus } from "../services/api";
-import { FileText, CheckCircle2, AlertTriangle, BookOpen, Upload, Clock, Database, ShieldAlert, Search, ArrowRight, ExternalLink, Cpu, Sparkles } from "lucide-react";
+import { fetchDashboardData, fetchSystemStatus, DEMO_DATA, setCustomBackendUrl, getBaseUrl } from "../services/api";
+import { FileText, CheckCircle2, AlertTriangle, BookOpen, Upload, Clock, Database, ShieldAlert, Search, ArrowRight, ExternalLink, Cpu, Sparkles, Globe, Link2, RefreshCw } from "lucide-react";
 
 export default function Dashboard({ onNavigate, onSelectAnalysis, systemStatus }) {
   const [dashboard, setDashboard] = useState(null);
@@ -10,6 +10,7 @@ export default function Dashboard({ onNavigate, onSelectAnalysis, systemStatus }
   const [attempt, setAttempt] = useState(1);
   const [analysisSearch, setAnalysisSearch] = useState("");
   const [corpusSearch, setCorpusSearch] = useState("");
+  const [customBackendUrl, setCustomBackendUrlState] = useState("");
 
   // When parent App detects systemStatus is online, automatically reload dashboard
   useEffect(() => {
@@ -99,23 +100,66 @@ export default function Dashboard({ onNavigate, onSelectAnalysis, systemStatus }
     );
   }
 
+  function handleLoadDemoMode() {
+    setDashboard(DEMO_DATA.dashboard);
+    setStatus(DEMO_DATA.status);
+    setError(null);
+  }
+
+  function handleConnectCustomBackend(e) {
+    e.preventDefault();
+    if (!customBackendUrl.trim()) return;
+    setCustomBackendUrl(customBackendUrl);
+    loadData();
+  }
+
   if (error) {
+    const isVercel = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
     return (
-      <div className="card" style={{ borderColor: "var(--status-danger)", background: "rgba(239, 68, 68, 0.05)", padding: "2rem" }}>
+      <div className="card" style={{ borderColor: "rgba(56, 189, 248, 0.4)", background: "rgba(14, 22, 44, 0.95)", padding: "2.25rem", maxWidth: 760, margin: "2rem auto" }}>
         <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
-          <ShieldAlert size={36} color="var(--status-danger)" style={{ marginTop: 2, flexShrink: 0 }} />
+          <div style={{ background: "rgba(56, 189, 248, 0.12)", border: "1px solid rgba(56, 189, 248, 0.3)", padding: "0.85rem", borderRadius: "12px", color: "var(--accent-cyan)", flexShrink: 0 }}>
+            <Globe size={32} />
+          </div>
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: "1.25rem", marginBottom: "0.4rem", color: "#f87171", fontWeight: 700 }}>Backend Disconnected</h3>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.92rem", lineHeight: 1.6 }}>
-              Unable to connect to the ScholarGuard AI backend on port 8000. Please ensure the backend server window is running.
-            </p>
-            <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "var(--accent-cyan)", display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent-cyan)", animation: "radar 1.5s infinite" }}></div>
-              <span>Auto-reconnecting in background (Attempt #{attempt})... Dashboard will automatically load once ready.</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "rgba(56, 189, 248, 0.1)", border: "1px solid rgba(56, 189, 248, 0.25)", padding: "0.2rem 0.65rem", borderRadius: "999px", color: "var(--accent-cyan)", fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", marginBottom: "0.5rem" }}>
+              <span>{isVercel ? "Vercel Cloud Deployment" : "Backend Connection"}</span>
             </div>
-            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.35rem", marginBottom: "0.4rem", color: "#ffffff", fontWeight: 800 }}>
+              {isVercel ? "Frontend Live on Vercel • Backend URL Needed" : "Connecting to ScholarGuard AI Backend..."}
+            </h3>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.92rem", lineHeight: 1.6, marginBottom: "1.25rem" }}>
+              {isVercel
+                ? "Your frontend is deployed successfully on Vercel! Because the Python PyTorch AI engine runs separately from Vercel's serverless limits, connect your hosted backend URL below or explore the live platform using interactive Demo Mode."
+                : "Unable to reach the ScholarGuard AI backend on port 8000. Please verify that 'python launch.py' or 'run_server.bat' is running."}
+            </p>
+
+            {/* Custom Backend URL Connector */}
+            <form onSubmit={handleConnectCustomBackend} style={{ display: "flex", gap: "0.6rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+              <div style={{ position: "relative", flex: 1, minWidth: 260 }}>
+                <Link2 size={16} style={{ position: "absolute", left: "0.9rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-dim)" }} />
+                <input
+                  type="text"
+                  placeholder="https://scholarguard-api.onrender.com or http://127.0.0.1:8000"
+                  value={customBackendUrl}
+                  onChange={(e) => setCustomBackendUrlState(e.target.value)}
+                  className="input"
+                  style={{ paddingLeft: "2.4rem", fontSize: "0.85rem", height: "40px" }}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ padding: "0 1.25rem", height: "40px", fontSize: "0.88rem" }}>
+                Connect Backend
+              </button>
+            </form>
+
+            <div style={{ display: "flex", gap: "0.85rem", alignItems: "center", flexWrap: "wrap", marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--border-subtle)" }}>
+              <button onClick={handleLoadDemoMode} className="btn btn-primary" style={{ background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)", boxShadow: "0 4px 16px rgba(99, 102, 241, 0.4)" }}>
+                <Sparkles size={16} />
+                Explore Platform in Demo Mode
+              </button>
               <button onClick={loadData} className="btn btn-secondary">
-                Retry Connection Now
+                <RefreshCw size={15} />
+                Retry Local Connection
               </button>
             </div>
           </div>
