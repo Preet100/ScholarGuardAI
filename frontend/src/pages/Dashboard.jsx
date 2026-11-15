@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { fetchDashboardData, fetchSystemStatus, DEMO_DATA, setCustomBackendUrl, getBaseUrl } from "../services/api";
+import { fetchDashboardData, fetchSystemStatus, setCustomBackendUrl, getBaseUrl, isStandaloneMode } from "../services/api";
 import { FileText, CheckCircle2, AlertTriangle, BookOpen, Upload, Clock, Database, ShieldAlert, Search, ArrowRight, ExternalLink, Cpu, Sparkles, Globe, Link2, RefreshCw } from "lucide-react";
 
 export default function Dashboard({ onNavigate, onSelectAnalysis, systemStatus }) {
@@ -101,9 +101,8 @@ export default function Dashboard({ onNavigate, onSelectAnalysis, systemStatus }
   }
 
   function handleLoadDemoMode() {
-    setDashboard(DEMO_DATA.dashboard);
-    setStatus(DEMO_DATA.status);
     setError(null);
+    loadData();
   }
 
   function handleConnectCustomBackend(e) {
