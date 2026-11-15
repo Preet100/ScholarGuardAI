@@ -1,7 +1,12 @@
 // Smart API Base URL:
-// If running on Vite dev server (e.g. port 5173), direct requests to FastAPI on port 8000.
-// If served directly by FastAPI (port 8000) or anywhere else, use relative /api.
+// 1. If VITE_API_URL is configured (e.g. on Vercel deployment), use that remote backend.
+// 2. If running on Vite dev server (e.g. port 5173), direct requests to local FastAPI on port 8000.
+// 3. Otherwise (served directly by FastAPI on port 8000), use relative /api.
 const getBaseUrl = () => {
+  if (import.meta.env?.VITE_API_URL) {
+    const base = import.meta.env.VITE_API_URL.replace(/\/+$/, "");
+    return base.endsWith("/api") ? base : `${base}/api`;
+  }
   if (typeof window !== "undefined" && window.location.port === "5173") {
     return "http://127.0.0.1:8000/api";
   }
