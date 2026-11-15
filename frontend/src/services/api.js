@@ -260,16 +260,26 @@ function segmentSentences(rawText) {
 // Parse In-Text Citation Keys
 function extractInTextCitations(text) {
   const citations = [];
-  // Parenthetical citations like (Vaswani et al., 2017) or (He et al., 2016)
-  const parenRegex = /\(([A-Z][A-Za-z\s]+(?:et al\.)?,\s*\d{4}[a-z]?)\)/g;
+  if (!text) return citations;
+
+  // 1. Parenthetical citations like (Vaswani et al., 2017) or (He et al., 2016)
+  const parenRegex = /\(([A-Z][A-Za-z\s\.\-]+?,\s*(?:19|20)\d{2}[a-z]?)\)/g;
   let match;
   while ((match = parenRegex.exec(text)) !== null) {
     citations.push({ raw: match[0], key: match[1].trim() });
   }
-  // Numbered citations like [1] or [1, 2]
-  const numRegex = /\[(\d+(?:,\s*\d+)*)\]/g;
+
+  // 2. Narrative citations like Vaswani et al. (2017) or Smith (2020)
+  const narrRegex = /\b([A-Z][A-Za-z\s]+?(?:et al\.)?)\s*\(((?:19|20)\d{2}[a-z]?)\)/g;
+  while ((match = narrRegex.exec(text)) !== null) {
+    citations.push({ raw: match[0], key: `${match[1].trim()}, ${match[2]}` });
+  }
+
+  // 3. Numbered citations like [1] or [1, 2] or [1]-[3]
+  const numRegex = /\[(\d+(?:\s*[,-–—]\s*\d+)*)\]/g;
   while ((match = numRegex.exec(text)) !== null) {
-    const nums = match[1].split(",").map(n => n.trim());
+    const rawInner = match[1];
+    const nums = rawInner.split(/[,-–—]/).map(n => n.trim()).filter(Boolean);
     for (const num of nums) {
       citations.push({ raw: `[${num}]`, key: num });
     }
@@ -279,19 +289,19 @@ function extractInTextCitations(text) {
 
 // Parse Reference Bibliography Entries
 function extractReferencesSection(text) {
-  const lower = text.toLowerCase();
-  const refIndex = Math.max(
-    lower.lastIndexOf("\nreferences"),
-    lower.lastIndexOf("\nbibliography"),
-    lower.lastIndexOf("## references")
-  );
+  if (!text) return [];
+  const clean = text.replace(/\r\n/g, "\n");
 
-  if (refIndex === -1) {
+  // Locate section headers like "References", "REFERENCES", "10. References", "Bibliography", "Works Cited"
+  const headerRegex = /(?:\n\s*|^)(?:(?:[0-9IVXLCDM]+\.?\s+)?(?:references|bibliography|works\s+cited))\b[:\s]*/i;
+  const match = headerRegex.exec(clean);
+  if (!match) {
     return [];
   }
 
-  const refBlock = text.substring(refIndex).replace(/^(#+\s*)?(references|bibliography)/i, "").trim();
-  const lines = refBlock.split(/\n+/).map(l => l.trim()).filter(l => l.length > 15);
+  const splitPos = match.index + match[0].length;
+  const refBlock = clean.substring(splitPos).trim();
+  const lines = refBlock.split(/\n+/).map(l => l.trim()).filter(l => l.length > 12);
 
   return lines.map((line, idx) => {
     const doiMatch = line.match(/10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+/);
@@ -507,16 +517,46 @@ function executeClientSideAudit(doc) {
         }
       ]
     },
-    "8_missing_attribution_warnings": { missing_attributions: missingAttributions },
-    "9_citation_formatting_issues": { issues: [] },
+    "8_missing_attribution_warnings": {
+      flags_count: missingAttributions.length,
+      flags: missingAttributions
+    },
+    "9_citation_formatting_issues": {
+      issues_count: 0,
+      issues: []
+    },
     "10_recommended_corrections": [
-      ...(missingAttributions.length > 0 ? ["Add parenthetical or bracketed in-text citations to uncredited passages."] : []),
-      ...(missingRefs.length > 0 ? ["Ensure all in-text cited authors appear in the terminal bibliography."] : []),
-      "Verify canonical DOI hyperlinks for institutional indexation."
+      ...(missingAttributions.length > 0 ? [{
+        category: "Attribution",
+        priority: "HIGH",
+        message: "Add explicit in-text citations to passages with elevated semantic overlap to published corpus works."
+      }] : []),
+      ...(missingRefs.length > 0 ? [{
+        category: "Citations & References",
+        priority: "HIGH",
+        message: `Found ${missingRefs.length} in-text citation(s) without corresponding references in the bibliography.`
+      }] : []),
+      {
+        category: "Scholarly Verification",
+        priority: "LOW",
+        message: "Verify canonical Crossref/OpenAlex DOI hyperlinks prior to formal submission."
+      }
     ],
     "11_methodology_and_limitations": {
       framework: "ScholarGuard AI Tri-Tier Similarity Architecture",
-      version: "1.0.0"
+      version: "1.0.0",
+      hybrid_weights: {
+        formula: "S = 0.30E + 0.25L + 0.45M",
+        exact: 0.30,
+        lexical: 0.25,
+        semantic: 0.45
+      },
+      models_employed: {
+        semantic_transformer: "all-MiniLM-L6-v2 (Sentence Transformers)",
+        lexical_vectorizer: "TF-IDF sublinear vocabulary overlap",
+        exact_matcher: "5-gram sliding token Jaccard shingling"
+      },
+      limitations_statement: "This report provides computational indicators to assist editorial self-review, not a definitive legal verdict of plagiarism. Contextual analysis and human peer evaluation are required."
     },
     report_metadata: {
       generated_at: dateStr,
@@ -588,6 +628,18 @@ async function extractPdfTextInBrowser(file) {
   }
 }
 
+async function extractDocxTextInBrowser(file) {
+  try {
+    const mammoth = await import("mammoth/mammoth.browser.js");
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return (result.value || "").trim();
+  } catch (err) {
+    console.warn("Client DOCX extraction error:", err);
+    return "";
+  }
+}
+
 export async function uploadDocument(file, citationStyle = "APA") {
   if (isStandaloneMode()) {
     const ext = file.name.split(".").pop().toUpperCase();
@@ -595,6 +647,8 @@ export async function uploadDocument(file, citationStyle = "APA") {
 
     if (ext === "PDF") {
       text = await extractPdfTextInBrowser(file);
+    } else if (ext === "DOCX") {
+      text = await extractDocxTextInBrowser(file);
     }
 
     if (!text || text.trim().length < 20) {

@@ -356,17 +356,24 @@ export default function FinalReport({ report, analysisId }) {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-          {recs.map((rec, i) => (
-            <div key={i} style={{ display: "flex", gap: "1rem", alignItems: "flex-start", background: "var(--bg-surface)", padding: "1rem 1.15rem", borderRadius: "8px", border: "1px solid var(--border-subtle)" }}>
-              <span className={`badge ${rec.priority === "HIGH" ? "badge-danger" : rec.priority === "MEDIUM" ? "badge-warning" : "badge-verified"}`}>
-                {rec.priority} PRIORITY
-              </span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-main)" }}>{rec.category}</div>
-                <div style={{ fontSize: "0.86rem", color: "var(--text-muted)", marginTop: "0.25rem", lineHeight: 1.45 }}>{rec.message}</div>
+          {recs.map((rec, i) => {
+            const isObj = typeof rec === "object" && rec !== null;
+            const priority = isObj ? rec.priority || "INFO" : "INFO";
+            const category = isObj ? rec.category || "General Checklist" : "General Checklist";
+            const message = isObj ? rec.message : String(rec);
+
+            return (
+              <div key={i} style={{ display: "flex", gap: "1rem", alignItems: "flex-start", background: "var(--bg-surface)", padding: "1rem 1.15rem", borderRadius: "8px", border: "1px solid var(--border-subtle)" }}>
+                <span className={`badge ${priority === "HIGH" ? "badge-danger" : priority === "MEDIUM" ? "badge-warning" : "badge-verified"}`}>
+                  {priority} PRIORITY
+                </span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "var(--text-main)" }}>{category}</div>
+                  <div style={{ fontSize: "0.86rem", color: "var(--text-muted)", marginTop: "0.25rem", lineHeight: 1.45 }}>{message}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
