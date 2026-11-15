@@ -101,12 +101,12 @@ export default function FinalReport({ report, analysisId }) {
           </div>
           <div style={{ background: "var(--bg-surface)", padding: "0.85rem 1rem", borderRadius: "8px", border: "1px solid var(--border-subtle)" }}>
             <div style={{ color: "var(--text-dim)", fontSize: "0.74rem", textTransform: "uppercase", fontWeight: 600 }}>Sentences Extracted</div>
-            <div style={{ fontWeight: 700, marginTop: "2px", color: "var(--text-main)" }}>{docInfo.total_sentences_extracted} sentences</div>
+            <div style={{ fontWeight: 700, marginTop: "2px", color: "var(--text-main)" }}>{(docInfo.total_sentences_extracted ?? docInfo.total_sentences ?? docInfo.total_passages ?? 0)} sentences</div>
           </div>
           <div style={{ background: "var(--bg-surface)", padding: "0.85rem 1rem", borderRadius: "8px", border: "1px solid var(--border-subtle)" }}>
             <div style={{ color: "var(--text-dim)", fontSize: "0.74rem", textTransform: "uppercase", fontWeight: 600 }}>SHA-256 Checksum</div>
             <div style={{ fontFamily: "JetBrains Mono", fontSize: "0.78rem", color: "var(--accent-cyan)", marginTop: "2px" }}>
-              {docInfo.file_hash_sha256 ? `${docInfo.file_hash_sha256.substring(0, 18)}...` : "N/A"}
+              {docInfo.file_hash_sha256 ? `${docInfo.file_hash_sha256.substring(0, 18)}...` : (docInfo.file_hash ? `${docInfo.file_hash.substring(0, 18)}...` : "N/A")}
             </div>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function FinalReport({ report, analysisId }) {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
             <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-dim)", fontFamily: "JetBrains Mono" }}>03. EXACT MATCHING</span>
-            <span className="badge badge-exact">{exactRes.matches_count || 0} Flagged</span>
+            <span className="badge badge-exact">{exactRes.matches_count ?? exactRes.matches?.length ?? 0} Flagged</span>
           </div>
           <p style={{ fontSize: "0.84rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
             Identical or near-verbatim 5-gram token sequences mapped directly to reference literature.
@@ -188,7 +188,7 @@ export default function FinalReport({ report, analysisId }) {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
             <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-dim)", fontFamily: "JetBrains Mono" }}>04. SEMANTIC SIMILARITY</span>
-            <span className="badge badge-semantic">{semanticRes.matches_count || 0} Flagged</span>
+            <span className="badge badge-semantic">{semanticRes.matches_count ?? semanticRes.matches?.length ?? 0} Flagged</span>
           </div>
           <p style={{ fontSize: "0.84rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
             Deep conceptual paraphrasing identified via Sentence Transformers (<code>all-MiniLM-L6-v2</code>) cosine distance.
@@ -198,7 +198,7 @@ export default function FinalReport({ report, analysisId }) {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
             <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-dim)", fontFamily: "JetBrains Mono" }}>05. LEXICAL OVERLAP</span>
-            <span className="badge badge-lexical">{lexicalRes.matches_count || 0} Flagged</span>
+            <span className="badge badge-lexical">{lexicalRes.matches_count ?? lexicalRes.matches?.length ?? 0} Flagged</span>
           </div>
           <p style={{ fontSize: "0.84rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
             Distinctive vocabulary and specialized terminology overlap captured via term frequency–inverse document frequency.

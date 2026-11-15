@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -9,13 +10,29 @@ from app.database.models import ResearchPaper
 from app.datasets.corpus_manager import CorpusManager
 from app.api.routes import api_router
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database schemas and seed default reference corpus on startup
+    init_db()
+    db = SessionLocal()
+    try:
+        corpus_mgr = CorpusManager(db)
+        corpus_mgr.seed_initial_corpus_if_empty()
+        corpus_mgr.sync_local_csv_files()
+        total_papers = db.query(ResearchPaper).count()
+        print(f"[ScholarGuard AI] Online. Indexed {total_papers} reference papers in corpus.")
+    finally:
+        db.close()
+    yield
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
         description="NLP-powered Research Paper Plagiarism and Citation Verification Tool",
         docs_url="/docs",
-        redoc_url="/redoc"
+        redoc_url="/redoc",
+        lifespan=lifespan
     )
 
     # Enable CORS for local and hosted frontends
@@ -26,20 +43,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"]
     )
-
-    # Initialize database schemas and seed default reference corpus
-    @app.on_event("startup")
-    def on_startup():
-        init_db()
-        db = SessionLocal()
-        try:
-            corpus_mgr = CorpusManager(db)
-            corpus_mgr.seed_initial_corpus_if_empty()
-            corpus_mgr.sync_local_csv_files()
-            total_papers = db.query(ResearchPaper).count()
-            print(f"[ScholarGuard AI] Online. Indexed {total_papers} reference papers in corpus.")
-        finally:
-            db.close()
 
     # Mount API routers
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)

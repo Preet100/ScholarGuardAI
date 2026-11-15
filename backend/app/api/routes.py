@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
@@ -117,8 +118,11 @@ async def upload_document(
             detail=f"Unsupported file format: '{ext}'. Supported formats: {', '.join(settings.ALLOWED_EXTENSIONS)}"
         )
 
-    # Save to upload directory with safe filename
-    temp_path = os.path.join(settings.UPLOAD_DIR, file.filename)
+    # Sanitize filename and save to upload directory
+    safe_filename = os.path.basename(file.filename)
+    # Remove any suspicious directory traversal characters
+    safe_filename = re.sub(r'[\r\n\t\\/:]+', '_', safe_filename)
+    temp_path = os.path.join(settings.UPLOAD_DIR, safe_filename)
     file_bytes = await file.read()
 
     # Size validation
@@ -328,9 +332,15 @@ def download_report(analysis_id: str, db: Session = Depends(get_db)):
     if not report_path or not os.path.exists(report_path):
         raise HTTPException(status_code=404, detail="Report file missing on server.")
 
+    # Prevent path traversal
+    normalized_path = os.path.abspath(report_path)
+    allowed_dir = os.path.abspath(settings.REPORTS_DIR)
+    if not normalized_path.startswith(allowed_dir):
+        raise HTTPException(status_code=403, detail="Access to specified report path is forbidden.")
+
     return FileResponse(
-        path=report_path,
-        filename=os.path.basename(report_path),
+        path=normalized_path,
+        filename=os.path.basename(normalized_path),
         media_type="application/json"
     )
 
@@ -377,7 +387,9 @@ async def import_corpus_csv(
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files (.csv) are supported.")
 
-    temp_path = os.path.join(settings.CORPUS_DIR, f"temp_{file.filename}")
+    safe_name = os.path.basename(file.filename)
+    safe_name = re.sub(r'[\r\n\t\\/:]+', '_', safe_name)
+    temp_path = os.path.join(settings.CORPUS_DIR, f"temp_{safe_name}")
     try:
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)

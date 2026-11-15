@@ -207,3 +207,80 @@ def test_report_generation():
     assert "10_recommended_corrections" in rep
     assert "11_methodology_and_limitations" in rep
     assert os.path.exists(rep["report_file_path"])
+
+def test_unsupported_and_empty_formats():
+    from app.document_processing.extractors import UnsupportedFormatError
+    parser = DocumentParser()
+    
+    # 1. Unsupported format rejection
+    with pytest.raises(UnsupportedFormatError):
+        parser.parse_document("dummy_document.xyz")
+        
+    # 2. Non-existent file rejection
+    with pytest.raises(FileNotFoundError):
+        parser.parse_document("non_existent_manuscript.pdf")
+
+def test_attribution_detection_logic():
+    detector = AttributionDetector(suspicion_threshold=0.70)
+    
+    # Sentence 0: High similarity, NO nearby citations within +/- 1 sentence window -> Should be flagged
+    # Sentence 2: High similarity, WITH in-text citation in sentence -> Should NOT be flagged
+    sentences = [
+        {
+            "sentence_index": 0,
+            "original_text": "We introduce a novel self-attention network for sequence modeling.",
+            "char_start": 0,
+            "char_end": 66
+        },
+        {
+            "sentence_index": 1,
+            "original_text": "The model dispenses with recurrence and convolutions entirely.",
+            "char_start": 67,
+            "char_end": 128
+        },
+        {
+            "sentence_index": 2,
+            "original_text": "In other domains, deep residual learning eases training of deep networks (He et al., 2016).",
+            "char_start": 129,
+            "char_end": 221
+        }
+    ]
+    matches = [
+        {
+            "submitted_sentence_index": 0,
+            "matched_source_passage": "We propose the Transformer, based solely on attention mechanisms.",
+            "similarity_score": 0.88,
+            "method": "SEMANTIC_TRANSFORMER",
+            "source_title": "Attention Is All You Need",
+            "source_authors": "Vaswani et al."
+        },
+        {
+            "submitted_sentence_index": 2,
+            "matched_source_passage": "We present a residual learning framework to ease the training of networks.",
+            "similarity_score": 0.92,
+            "method": "SEMANTIC_TRANSFORMER",
+            "source_title": "Deep Residual Learning",
+            "source_authors": "He et al."
+        }
+    ]
+    flags = detector.detect_missing_attributions(sentences, matches, body_text=" ".join(s["original_text"] for s in sentences))
+    flagged_indices = [f["sentence_index"] for f in flags]
+    
+    assert 0 in flagged_indices  # Missing attribution flagged
+    assert 2 not in flagged_indices  # Properly attributed passage is NOT falsely flagged
+
+def test_hybrid_scoring_bounds():
+    from app.plagiarism.similarity_engine import SimilarityEngine
+    engine = SimilarityEngine()
+    
+    # Edge case 1: Empty submitted sentences -> scores should strictly be 0.0
+    res_empty = engine.run_full_similarity_scan([], [])
+    assert res_empty["overall_similarity_score"] == 0.0
+    assert res_empty["exact_similarity_score"] == 0.0
+    
+    # Edge case 2: Score bounded strictly in [0.0, 1.0]
+    prep = TextPreprocessor()
+    test_sents = prep.segment_sentences("Completely arbitrary unique sentence without any overlap.")
+    res_clean = engine.run_full_similarity_scan(test_sents, [{"content": "Unrelated topic text", "paper_id": "p1"}])
+    assert 0.0 <= res_clean["overall_similarity_score"] <= 1.0
+

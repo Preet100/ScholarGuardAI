@@ -473,9 +473,18 @@ function executeClientSideAudit(doc) {
         ? "Notable textual and conceptual overlap detected with peer-reviewed literature. Editorial verification advised."
         : "Low overlap detected. Manuscript demonstrates high degree of independent phrasing."
     },
-    "3_exact_matching_results": { matches: exactMatches },
-    "4_lexical_similarity_results": { matches: lexicalMatches },
-    "5_semantic_similarity_results": { matches: semanticMatches },
+    "3_exact_matching_results": {
+      matches_count: exactMatches.length,
+      matches: exactMatches
+    },
+    "4_lexical_similarity_results": {
+      matches_count: lexicalMatches.length,
+      matches: lexicalMatches
+    },
+    "5_semantic_similarity_results": {
+      matches_count: semanticMatches.length,
+      matches: semanticMatches
+    },
     "6_matched_source_details": Array.from(matchedSourcesMap.values()),
     "7_citation_verification_results": {
       total_in_text_citations: inTextCitations.length,
